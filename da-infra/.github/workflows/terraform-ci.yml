@@ -1,0 +1,260 @@
+# Da Infrastructure — CI Workflow
+# Runs on: every pull request + every push to main
+# Does:    fmt check → validate → tfsec security scan → plan dev → plan prod
+#
+# Plans are saved as artifacts and consumed by the CD workflow.
+# Secrets are fetched from HCP Vault Secrets using a service principal.
+#
+# Required GitHub repository secrets (Settings → Secrets → Actions):
+#   HCP_CLIENT_ID       — HCP service principal client ID
+#   HCP_CLIENT_SECRET   — HCP service principal client secret  (mark as secret)
+#   HCP_ORG_ID          — HCP organisation ID
+#   HCP_PROJECT_ID      — HCP project ID
+#   AWS_ROLE_ARN        — IAM role ARN for OIDC assume-role (no static keys needed)
+
+name: Terraform CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'environment/**'
+      - 'infrastructure/**'
+      - 'resources/**'
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - 'environment/**'
+      - 'infrastructure/**'
+      - 'resources/**'
+
+permissions:
+  contents: read
+  id-token: write   # Required for AWS OIDC authentication
+  pull-requests: write  # Required to post plan output as PR comment
+
+env:
+  TF_VERSION: "1.6.6"
+  AWS_REGION: "ap-southeast-1"
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+
+  # ── Quality checks ─────────────────────────────────────────────────────────
+  fmt-check:
+    name: Terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+        working-directory: .
+
+  validate:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Validate each environment — catches variable type mismatches early
+      - name: Validate dev
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: environment/dev
+
+      - name: Validate prod
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: environment/prod
+
+  tfsec:
+    name: tfsec security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          minimum_severity: MEDIUM
+          soft_fail: true   # Informational until all rules are clean — harden over time
+
+  # ── Fetch secrets from HCP Vault ──────────────────────────────────────────
+  # Reusable step output — used by plan-dev and plan-prod jobs below
+  # HCP Vault Secrets free tier: up to 25 secrets, unlimited reads
+
+  # ── Plan dev ───────────────────────────────────────────────────────────────
+  plan-dev:
+    name: Plan dev
+    runs-on: ubuntu-latest
+    needs: [fmt-check, validate]
+    environment: dev  # Links to GitHub environment (optional but good practice)
+    outputs:
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Authenticate to AWS via OIDC — no static access keys stored in GitHub
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Fetch secrets from HCP Vault Secrets
+      - name: Fetch secrets from HCP Vault
+        id: hcp-secrets
+        run: |
+          # Get HCP access token
+          HCP_TOKEN=$(curl -s \
+            --location "https://auth.idp.hashicorp.com/oauth2/token" \
+            --header "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "client_id=${{ secrets.HCP_CLIENT_ID }}" \
+            --data-urlencode "client_secret=${{ secrets.HCP_CLIENT_SECRET }}" \
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "audience=https://api.hashicorp.cloud" \
+            | jq -r '.access_token')
+
+          # Helper: fetch a single secret value
+          fetch() {
+            curl -s \
+              --header "Authorization: Bearer ${HCP_TOKEN}" \
+              "https://api.cloud.hashicorp.com/secrets/2023-11-28/organizations/${{ secrets.HCP_ORG_ID }}/projects/${{ secrets.HCP_PROJECT_ID }}/apps/da-dev/secrets/${1}:open" \
+              | jq -r '.secret.static_version.value'
+          }
+
+          # Export as TF_VAR_* — Terraform picks these up automatically
+          echo "TF_VAR_db_password=$(fetch db_password)" >> $GITHUB_ENV
+          echo "TF_VAR_jwt_secret_key=$(fetch jwt_secret_key)" >> $GITHUB_ENV
+          echo "TF_VAR_stripe_webhook_secret=$(fetch stripe_webhook_secret)" >> $GITHUB_ENV
+          echo "TF_VAR_expo_push_token=$(fetch expo_push_token)" >> $GITHUB_ENV
+          echo "TF_VAR_lambda_zip_version=${{ github.sha }}" >> $GITHUB_ENV
+          # Mask secrets in logs
+          echo "::add-mask::$(fetch db_password)"
+          echo "::add-mask::$(fetch jwt_secret_key)"
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: environment/dev
+
+      - name: Terraform plan
+        id: plan
+        run: |
+          terraform plan \
+            -input=false \
+            -out=tfplan.dev \
+            -detailed-exitcode
+        working-directory: environment/dev
+        # Exit codes: 0 = no changes, 1 = error, 2 = changes present
+        continue-on-error: true
+
+      - name: Post plan summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### Terraform Plan — dev
+            Exit code: \`${{ steps.plan.outputs.exitcode }}\`
+            0 = no changes · 1 = error · 2 = changes pending deploy
+
+            > Plan artifact saved. Will be applied automatically on merge to main.`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Upload plan artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev-${{ github.sha }}
+          path: environment/dev/tfplan.dev
+          retention-days: 1
+
+      - name: Fail if plan errored
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1
+
+  # ── Plan prod ──────────────────────────────────────────────────────────────
+  plan-prod:
+    name: Plan prod
+    runs-on: ubuntu-latest
+    needs: [fmt-check, validate]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from HCP Vault
+        run: |
+          HCP_TOKEN=$(curl -s \
+            --location "https://auth.idp.hashicorp.com/oauth2/token" \
+            --header "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "client_id=${{ secrets.HCP_CLIENT_ID }}" \
+            --data-urlencode "client_secret=${{ secrets.HCP_CLIENT_SECRET }}" \
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "audience=https://api.hashicorp.cloud" \
+            | jq -r '.access_token')
+          fetch() {
+            curl -s \
+              --header "Authorization: Bearer ${HCP_TOKEN}" \
+              "https://api.cloud.hashicorp.com/secrets/2023-11-28/organizations/${{ secrets.HCP_ORG_ID }}/projects/${{ secrets.HCP_PROJECT_ID }}/apps/da-prod/secrets/${1}:open" \
+              | jq -r '.secret.static_version.value'
+          }
+          echo "TF_VAR_db_password=$(fetch db_password)" >> $GITHUB_ENV
+          echo "TF_VAR_jwt_secret_key=$(fetch jwt_secret_key)" >> $GITHUB_ENV
+          echo "TF_VAR_stripe_webhook_secret=$(fetch stripe_webhook_secret)" >> $GITHUB_ENV
+          echo "TF_VAR_expo_push_token=$(fetch expo_push_token)" >> $GITHUB_ENV
+          echo "TF_VAR_lambda_zip_version=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: environment/prod
+
+      - name: Terraform plan
+        id: plan
+        run: |
+          terraform plan \
+            -input=false \
+            -out=tfplan.prod \
+            -detailed-exitcode
+        working-directory: environment/prod
+        continue-on-error: true
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-prod-${{ github.sha }}
+          path: environment/prod/tfplan.prod
+          retention-days: 1
+
+      - name: Fail if plan errored
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1

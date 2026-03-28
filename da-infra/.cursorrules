@@ -1,0 +1,93 @@
+# Da Infrastructure — Cursor Rules
+
+## Context file
+Always read `docs/PRD.md` before making any changes. It is the single source of truth
+for product requirements, architecture decisions, data model, naming conventions, and
+module completion status.
+
+## Repository purpose
+Terraform IaC for the Da dating app on AWS. Two environments: dev and prod.
+No application code lives here — Lambda handlers are in a separate repo.
+
+## Terraform rules
+
+### File structure — every module must have all 6 files
+- main.tf — resource definitions
+- variables.tf — input variables (sensitive = true for any secret)
+- outputs.tf — output values
+- locals.tf — derived values (account_id, region, prefix)
+- data.tf — data.aws_caller_identity.current + data.aws_region.current minimum
+- versions.tf — terraform >= 1.5, aws >= 5.0
+
+### IAM — non-negotiable
+- Every aws_iam_role MUST set: permissions_boundary = var.boundary_policy_arn
+- Every module that creates IAM roles MUST accept var.boundary_policy_arn
+
+### SQS — non-negotiable
+- Every queue MUST have a paired DLQ (7-day retention)
+- Every queue MUST have a CloudWatch alarm on DLQ ApproximateNumberOfMessagesVisible > 0
+- Every queue MUST deny non-SSL access in its queue policy
+
+### SSM — publish everything
+After creating any resource, publish its identifier to SSM:
+/{env}/infrastructure/{service}/{property}
+Examples: /dev/infrastructure/sqs/notification-queue-url
+          /prod/infrastructure/rds/proxy-endpoint
+
+### Naming conventions
+- AWS resources (S3, SQS, Lambda, RDS, DynamoDB): da-{env}-{purpose}
+- IAM roles: Da-{env}-{purpose}-role
+- IAM policies: Da-{env}-{purpose}
+- SSM parameters: /{env}/infrastructure/{service}/{property}
+
+### Provider tags — always present
+Every provider block must include default_tags with:
+application_name, deployment_environment, deployment_source, project
+
+### Secrets — never hardcoded
+All secrets are sensitive = true variables sourced from HCP Vault via GitHub Actions.
+Never use default values for sensitive variables.
+
+## Architecture constraints
+- No NAT Gateway — use VPC Gateway Endpoints for S3/DynamoDB, split VPC for Lambdas
+- No ALB — use API Gateway HTTP v2 ($1/million requests)
+- No ECS — Lambda only (chat service uses API Gateway WebSocket)
+- No ElastiCache — use DynamoDB TTL for shared cache
+- RDS Proxy is mandatory — Lambda + RDS without proxy = connection exhaustion
+- Lambdas use arm64 (Graviton2) runtime — 20% cheaper, faster cold starts
+
+## Backend runtime rules
+
+- Runtime is Bun — set runtime = "provided.al2023" on ALL Lambda functions
+- Always include the Bun layer ARN in the layers list
+- NEVER set runtime = "nodejs20.x" — this is incorrect for Da
+- Handler source files are .ts — Bun runs them directly, no compile step
+- NEVER add tsc or esbuild build steps to Lambda deployment packages
+- DB driver is `postgres` (pure JS by porsager) — NEVER use `pg` (native bindings)
+- Middy createHandler() wraps every Lambda — never write raw Lambda handlers
+- Secrets are in context (from @middy/ssm) — never call ssm.getParameter() in handlers
+
+## Monorepo rules
+
+- This is a Turborepo monorepo — root is da/, da-infra/ is a subfolder
+- Run individual apps with: turbo dev --filter=@da/[app-name]
+- Never run npm/yarn — always use bun
+- All packages reference each other as workspace:* dependencies
+
+## Mobile rules
+
+- React Native uses Expo BARE workflow — ios/ and android/ folders exist and are committed
+- NEVER suggest managed workflow — bare is intentional from day one
+- EAS Build for native builds, EAS Update for JS-only OTA updates
+- NEVER suggest Bitrise — EAS Build is the mobile CI/CD
+- iOS in-app purchases: ALWAYS use RevenueCat + Apple IAP, NEVER Stripe on iOS
+- Android in-app purchases: ALWAYS use RevenueCat + Google Play Billing
+- Web purchases: Stripe only
+
+## Local dev rules
+
+- Local API server runs on port 4000 via Hono (packages/local-server)
+- When adding a new Lambda service, also add its routes to packages/local-server/src/index.ts
+- Local infrastructure runs in Docker — never point local dev at real AWS services
+- Secrets in local dev come from .env.local via localEnvMiddleware — never SSM
+- New secret needed? Add to .env.local.example AND to the createHandler() SECRET_CONFIG map

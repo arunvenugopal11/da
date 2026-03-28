@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Da — Architecture</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f6f8fa;
+    --bg3: #eef1f5;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text2: #656d76;
+    --text3: #9198a1;
+    --blue: #0969da;
+    --blue-bg: #ddf4ff;
+    --blue-border: #54aeff;
+    --green: #1a7f37;
+    --green-bg: #dafbe1;
+    --amber: #9a6700;
+    --amber-bg: #fff8c5;
+    --red: #cf222e;
+    --red-bg: #ffebe9;
+    --purple: #8250df;
+    --purple-bg: #fbefff;
+    --teal: #1b7c83;
+    --teal-bg: #d8f9f1;
+    --radius: 6px;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+      --border: #30363d; --text: #e6edf3; --text2: #8d96a0; --text3: #6e7681;
+      --blue: #58a6ff; --blue-bg: #0c2d6b; --blue-border: #1f6feb;
+      --green: #3fb950; --green-bg: #0f2d1e;
+      --amber: #e3b341; --amber-bg: #2d2100;
+      --red: #f85149; --red-bg: #2d0f0f;
+      --purple: #bc8cff; --purple-bg: #1d0f3c;
+      --teal: #39d353; --teal-bg: #0d2c1e;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  h1 { font-size: 28px; font-weight: 600; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  h2 { font-size: 20px; font-weight: 600; margin: 40px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+  h4 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--text2); }
+  p { margin: 8px 0; color: var(--text); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow-x: auto;
+    line-height: 1.5;
+    margin: 12px 0;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: var(--bg2); font-weight: 600; text-align: left; padding: 8px 12px; border: 1px solid var(--border); color: var(--text); }
+  td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--bg2); }
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin: 0 0 32px; display: inline-block; min-width: 280px; }
+  .toc h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--text2); }
+  .toc ol { padding-left: 18px; }
+  .toc li { margin: 3px 0; font-size: 13px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .b-blue   { background: var(--blue-bg);   color: var(--blue);   }
+  .b-green  { background: var(--green-bg);  color: var(--green);  }
+  .b-amber  { background: var(--amber-bg);  color: var(--amber);  }
+  .b-red    { background: var(--red-bg);    color: var(--red);    }
+  .b-purple { background: var(--purple-bg); color: var(--purple); }
+  .b-teal   { background: var(--teal-bg);   color: var(--teal);   }
+  .callout {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    border-left: 3px solid;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  .c-info   { background: var(--blue-bg);   border-color: var(--blue);   color: var(--blue); }
+  .c-warn   { background: var(--amber-bg);  border-color: var(--amber);  color: var(--amber); }
+  .c-good   { background: var(--green-bg);  border-color: var(--green);  color: var(--green); }
+  .c-danger { background: var(--red-bg);    border-color: var(--red);    color: var(--red); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .card-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .stat-num { font-size: 24px; font-weight: 600; line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .arch-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin: 4px 0;
+    font-size: 12px;
+  }
+  .layer { margin: 8px 0; }
+  .layer-label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  .service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 8px 0; }
+  .svc {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .svc-name { font-weight: 600; font-family: var(--mono); margin-bottom: 2px; }
+  .svc-desc { color: var(--text2); font-size: 11px; }
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .flow-step {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: var(--text3); font-size: 16px; }
+  .flow-manual {
+    background: var(--amber-bg);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  @media (max-width: 700px) {
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Da — Architecture</h1>
+<p style="color:var(--text2);margin-bottom:24px">Last updated March 2026 &nbsp;·&nbsp; React Native · Next.js · AWS Lean · Terraform · GitHub Actions</p>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">System overview</a></li>
+    <li><a href="#clients">Client layer</a></li>
+    <li><a href="#infra">AWS infrastructure</a></li>
+    <li><a href="#data">Data layer</a></li>
+    <li><a href="#services">Service layer</a></li>
+    <li><a href="#async">Async &amp; eventing</a></li>
+    <li><a href="#security">Security model</a></li>
+    <li><a href="#cicd">CI/CD pipeline</a></li>
+    <li><a href="#secrets">Secrets management</a></li>
+    <li><a href="#cost">Cost profile</a></li>
+    <li><a href="#decisions">Architecture decisions</a></li>
+    <li><a href="#scaling">Scaling path</a></li>
+  </ol>
+</div>
+
+<!-- ── 1. OVERVIEW ─────────────────────────────────────────── -->
+<h2 id="overview">1. System overview</h2>
+
+<div class="layer">
+  <div class="layer-label">Client layer</div>
+  <div class="grid2">
+    <div class="arch-box"><strong>React Native (Expo)</strong><br><span style="color:var(--text2);font-size:12px">iOS · Android · managed workflow · OTA updates</span></div>
+    <div class="arch-box"><strong>Next.js 14 (Vercel)</strong><br><span style="color:var(--text2);font-size:12px">Web PWA · App Router · RSC · free hosting</span></div>
+  </div>
+</div>
+<div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓ HTTPS + WSS</div>
+<div class="layer">
+  <div class="layer-label">Edge layer</div>
+  <div class="arch-box" style="background:var(--bg3)">Route53 &nbsp;·&nbsp; CloudFront CDN &nbsp;·&nbsp; API Gateway HTTP v2 &nbsp;·&nbsp; API Gateway WebSocket</div>
+</div>
+<div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+<div class="layer">
+  <div class="layer-label">Service layer — AWS Lambda arm64</div>
+  <div class="service-grid">
+    <div class="svc"><div class="svc-name">auth</div><div class="svc-desc">OTP · JWT</div></div>
+    <div class="svc"><div class="svc-name">profile</div><div class="svc-desc">CRUD · photos</div></div>
+    <div class="svc"><div class="svc-name">matching</div><div class="svc-desc">discovery · geo</div></div>
+    <div class="svc"><div class="svc-name">premium</div><div class="svc-desc">plan gating</div></div>
+    <div class="svc"><div class="svc-name">chat</div><div class="svc-desc">WebSocket</div></div>
+    <div class="svc"><div class="svc-name">notifications</div><div class="svc-desc">SQS → Expo Push</div></div>
+    <div class="svc"><div class="svc-name">stripe_webhook</div><div class="svc-desc">billing events</div></div>
+  </div>
+</div>
+<div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+<div class="grid2">
+  <div>
+    <div class="layer-label">Data layer</div>
+    <div class="arch-box">RDS PostgreSQL + RDS Proxy + PostGIS</div>
+    <div class="arch-box">DynamoDB — chat connections · daily recs cache</div>
+    <div class="arch-box">S3 + CloudFront — media CDN</div>
+  </div>
+  <div>
+    <div class="layer-label">Async layer</div>
+    <div class="arch-box">SQS notification queue + DLQ</div>
+    <div class="arch-box">SQS matching queue + DLQ</div>
+    <div class="arch-box">EventBridge Scheduler — daily recs cron</div>
+    <div class="layer-label" style="margin-top:12px">Third-party</div>
+    <div class="arch-box">Stripe · Expo Push · Resend · HCP Vault</div>
+  </div>
+</div>
+
+<!-- ── 2. CLIENTS ──────────────────────────────────────────── -->
+<h2 id="clients">2. Client layer</h2>
+
+<div class="grid2">
+  <div>
+    <h3>Mobile — React Native</h3>
+    <table>
+      <tr><th>Concern</th><th>Choice</th></tr>
+      <tr><td>Framework</td><td>Expo managed workflow</td></tr>
+      <tr><td>Navigation</td><td>Expo Router (file-based)</td></tr>
+      <tr><td>State</td><td>Zustand</td></tr>
+      <tr><td>Server state</td><td>TanStack Query</td></tr>
+      <tr><td>Styling</td><td>NativeWind (Tailwind)</td></tr>
+      <tr><td>Animations</td><td>Reanimated 3</td></tr>
+      <tr><td>CI/CD</td><td>EAS Build + EAS Submit</td></tr>
+    </table>
+  </div>
+  <div>
+    <h3>Mobile navigation structure</h3>
+    <pre>Bottom tabs
+├── Home
+│   ├── Notification banner  (dynamic)
+│   ├── Premium matches      (blurred for free)
+│   ├── New matches
+│   └── Recent visitors
+├── Matches
+│   ├── Search               (multi-filter)
+│   ├── New matches
+│   ├── Daily recommendations
+│   ├── My matches
+│   └── Near me              (PostGIS)
+├── Interests
+├── Chat                     (WebSocket)
+└── Premium                  (upgrade CTA)</pre>
+  </div>
+</div>
+
+<!-- ── 3. INFRA ─────────────────────────────────────────────── -->
+<h2 id="infra">3. AWS infrastructure</h2>
+
+<div class="callout c-good">
+  <strong>Lean AWS design principle:</strong> Four always-on cost sinkholes are eliminated — NAT Gateway, ALB, ECS Fargate, and ElastiCache. Together they save ~$96–126/mo at every stage of growth.
+</div>
+
+<div class="grid2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-title" style="color:var(--red)">❌ Removed</div>
+    <table style="margin:0">
+      <tr><td><code>NAT Gateway</code></td><td style="color:var(--red)">$33/mo</td></tr>
+      <tr><td><code>ALB</code></td><td style="color:var(--red)">$18/mo</td></tr>
+      <tr><td><code>ECS Fargate</code></td><td style="color:var(--red)">$30–60/mo</td></tr>
+      <tr><td><code>ElastiCache</code></td><td style="color:var(--red)">$15/mo</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title" style="color:var(--green)">✓ Replaced with</div>
+    <table style="margin:0">
+      <tr><td>VPC Gateway Endpoints</td><td style="color:var(--green)">Free</td></tr>
+      <tr><td>API Gateway HTTP v2</td><td style="color:var(--green)">$1/M req</td></tr>
+      <tr><td>Lambda (scale to zero)</td><td style="color:var(--green)">$0 idle</td></tr>
+      <tr><td>DynamoDB TTL cache</td><td style="color:var(--green)">$0 idle</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>VPC topology</h3>
+<pre>VPC: da-{env}-vpc
+│
+├── Private subnets (2 AZs)
+│   ├── Lambdas: auth, profile, matching, premium, chat
+│   ├── RDS PostgreSQL
+│   └── RDS Proxy (mandatory — prevents Lambda connection exhaustion)
+│
+└── Public subnets (2 AZs) — reserved for ALB if added later
+
+Outside VPC (no RDS dependency):
+└── Lambdas: notifications, stripe_webhook
+    └── Reach Expo Push / Stripe via internet directly
+
+Free VPC Gateway Endpoints (no data charge):
+├── s3         → Lambdas reach S3 without NAT
+└── dynamodb   → Lambdas reach DynamoDB without NAT
+
+Interface Endpoint (small hourly cost):
+└── ssm        → Lambdas read Parameter Store without NAT</pre>
+
+<!-- ── 4. DATA ──────────────────────────────────────────────── -->
+<h2 id="data">4. Data layer</h2>
+
+<h3>RDS PostgreSQL</h3>
+<table>
+  <tr><th>Environment</th><th>Instance</th><th>Multi-AZ</th><th>Max connections</th></tr>
+  <tr><td>dev</td><td><code>db.t4g.micro</code></td><td>No</td><td>87</td></tr>
+  <tr><td>prod</td><td><code>db.t4g.small</code></td><td>Yes</td><td>170</td></tr>
+</table>
+
+<div class="callout c-warn"><strong>RDS Proxy is non-negotiable.</strong> Without it, 100 concurrent Lambda invocations exhaust the connection limit and every query fails with "too many connections". Proxy costs $18/mo and multiplexes connections — mandatory from day one.</div>
+
+<h3>Key tables</h3>
+<table>
+  <tr><th>Table</th><th>Key columns</th><th>Notes</th></tr>
+  <tr><td><code>users</code></td><td>id, is_premium, is_verified, last_active</td><td>Core profile data</td></tr>
+  <tr><td><code>user_locations</code></td><td>user_id, location <code>geography(POINT,4326)</code></td><td>PostGIS spatial index — Near Me</td></tr>
+  <tr><td><code>user_preferences</code></td><td>looking_for[], age_min/max, max_distance_km</td><td>Match filter source</td></tr>
+  <tr><td><code>interactions</code></td><td>from_user_id, to_user_id, type</td><td>like / superlike / pass</td></tr>
+  <tr><td><code>matches</code></td><td>user_id_1, user_id_2, matched_at</td><td>Created on mutual like</td></tr>
+  <tr><td><code>messages</code></td><td>match_id, sender_id, content, read_at</td><td>Persisted chat history</td></tr>
+  <tr><td><code>profile_views</code></td><td>viewer_id, viewed_id, viewed_at</td><td>Recent Visitors feature</td></tr>
+  <tr><td><code>subscriptions</code></td><td>stripe_sub_id, plan, status</td><td>Updated by stripe_webhook Lambda</td></tr>
+  <tr><td><code>verifications</code></td><td>type (selfie|govt_id), status</td><td>Drives banner prompts</td></tr>
+  <tr><td><code>banners</code></td><td>type, target_segment[], priority, active dates</td><td>Home page dynamic banners</td></tr>
+</table>
+
+<h3>DynamoDB</h3>
+<table>
+  <tr><th>Table</th><th>PK</th><th>TTL</th><th>Purpose</th></tr>
+  <tr><td><code>da-{env}-chat-connections</code></td><td>connectionId</td><td>ttl (auto)</td><td>WebSocket connectionId → userId mapping</td></tr>
+  <tr><td><code>da-{env}-daily-recommendations</code></td><td>userId</td><td>expiresAt (24hr)</td><td>Pre-computed daily match list — replaces ElastiCache</td></tr>
+</table>
+<p style="color:var(--text2);font-size:12px">Both tables use on-demand billing — cost is $0 when idle.</p>
+
+<!-- ── 5. SERVICES ─────────────────────────────────────────── -->
+<h2 id="services">5. Service layer</h2>
+
+<p>All functions: <code>nodejs20.x</code>, <code>arm64</code> Graviton2 (20% cheaper, faster cold starts). Secrets read from SSM at cold start — nothing in environment variables.</p>
+
+<table>
+  <tr><th>Function</th><th>Trigger</th><th>VPC</th><th>Purpose</th></tr>
+  <tr><td><code>auth</code></td><td>API GW HTTP</td><td><span class="badge b-blue">Yes</span></td><td>Phone OTP, JWT issuance, token refresh</td></tr>
+  <tr><td><code>profile</code></td><td>API GW HTTP</td><td><span class="badge b-blue">Yes</span></td><td>Profile CRUD, S3 presigned URL for photo upload</td></tr>
+  <tr><td><code>matching</code></td><td>API GW HTTP</td><td><span class="badge b-blue">Yes</span></td><td>Discovery, search, Near Me (PostGIS), like/pass</td></tr>
+  <tr><td><code>premium</code></td><td>API GW HTTP</td><td><span class="badge b-blue">Yes</span></td><td>Premium feature gating, plan status checks</td></tr>
+  <tr><td><code>chat</code></td><td>API GW WebSocket</td><td><span class="badge b-blue">Yes</span></td><td>$connect · $disconnect · $default</td></tr>
+  <tr><td><code>notifications</code></td><td>SQS trigger</td><td><span class="badge b-amber">No</span></td><td>Expo Push notification sender</td></tr>
+  <tr><td><code>stripe_webhook</code></td><td>API GW HTTP</td><td><span class="badge b-amber">No</span></td><td>Billing events → activate/deactivate premium</td></tr>
+</table>
+
+<div class="callout c-info"><strong>Provisioned concurrency</strong> (prod only): <code>auth</code> and <code>profile</code> keep 2 warm instances each, eliminating cold starts on the most-used endpoints.</div>
+
+<!-- ── 6. ASYNC ─────────────────────────────────────────────── -->
+<h2 id="async">6. Async &amp; eventing</h2>
+
+<h3>SQS queue pattern</h3>
+<p>Every queue in this project is created with this structure — enforced by the Terraform module:</p>
+<pre>Primary queue
+├── maxReceiveCount: 3       → retry 3× before DLQ
+├── Deny non-SSL (policy)    → all traffic must use TLS
+└── DLQ (7-day retention)
+    └── CloudWatch alarm     → fires when any message lands in DLQ</pre>
+
+<table>
+  <tr><th>Queue</th><th>Producer</th><th>Consumer</th><th>Purpose</th></tr>
+  <tr><td><code>da-{env}-notification</code></td><td>matching, premium, chat</td><td>notifications Lambda</td><td>Push notification fan-out</td></tr>
+  <tr><td><code>da-{env}-matching</code></td><td>profile Lambda</td><td>matching Lambda</td><td>Async match score computation</td></tr>
+</table>
+
+<h3>EventBridge Scheduler</h3>
+<p>Daily cron at 02:00 UTC triggers <code>matching</code> Lambda to pre-compute recommendations for all active users → writes to <code>da-{env}-daily-recommendations</code> DynamoDB table with 24hr TTL.</p>
+
+<!-- ── 7. SECURITY ──────────────────────────────────────────── -->
+<h2 id="security">7. Security model</h2>
+
+<div class="grid2">
+  <div>
+    <h3>IAM permission boundaries</h3>
+    <p style="font-size:13px">Every IAM role has <code>permissions_boundary = Da-{env}-PermissionBoundary</code>. Even a wildcard <code>Action:"*"</code> role cannot exceed what the boundary allows.</p>
+    <p style="font-size:13px;margin-top:8px"><strong>Explicitly denied regardless of role policy:</strong></p>
+    <ul style="font-size:12px;padding-left:18px;color:var(--text2)">
+      <li>iam:CreateRole, iam:AttachRolePolicy, iam:PutRolePolicy</li>
+      <li>iam:DeleteRolePolicy, iam:DetachRolePolicy</li>
+      <li>organizations:*, account:*</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Secret flow</h3>
+    <div class="flow" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div class="flow-step">HCP Vault Secrets (free tier)</div>
+      <div style="color:var(--text3);padding-left:12px;font-size:12px">↓ fetched at deploy time</div>
+      <div class="flow-step">GitHub Actions TF_VAR_* (masked)</div>
+      <div style="color:var(--text3);padding-left:12px;font-size:12px">↓ written by Terraform</div>
+      <div class="flow-step">SSM SecureString (KMS encrypted)</div>
+      <div style="color:var(--text3);padding-left:12px;font-size:12px">↓ read at Lambda cold start</div>
+      <div class="flow-step">Application code (never logged)</div>
+    </div>
+  </div>
+</div>
+
+<h3>Network controls</h3>
+<table>
+  <tr><th>Security group</th><th>Rule</th></tr>
+  <tr><td>Lambda SG</td><td>Egress TCP 443 → VPC CIDR (SSM, S3, DynamoDB endpoints)<br>Egress TCP 5432 → VPC CIDR (RDS Proxy)</td></tr>
+  <tr><td>RDS SG</td><td>Ingress TCP 5432 from Lambda SG only — no other inbound</td></tr>
+</table>
+
+<div class="callout c-info">Lambdas connect to RDS via RDS Proxy using <strong>IAM authentication</strong> — no database password in code or environment variables. The proxy authenticates via <code>rds-db:connect</code> IAM permission scoped to the proxy resource ARN.</div>
+
+<!-- ── 8. CI/CD ─────────────────────────────────────────────── -->
+<h2 id="cicd">8. CI/CD pipeline</h2>
+
+<h3>CI — runs on every PR and push to main</h3>
+<div class="flow">
+  <div class="flow-step">fmt check</div><div class="flow-arrow">→</div>
+  <div class="flow-step">validate</div><div class="flow-arrow">→</div>
+  <div class="flow-step">tfsec scan</div><div class="flow-arrow">→</div>
+  <div class="flow-step">plan dev</div><div class="flow-arrow">→</div>
+  <div class="flow-step">plan prod</div>
+</div>
+
+<h3>CD — runs after CI passes on main</h3>
+<div class="flow">
+  <div class="flow-step">CI passed</div><div class="flow-arrow">→</div>
+  <div class="flow-step b-green" style="background:var(--green-bg);border:1px solid var(--green);color:var(--green)">deploy dev (auto)</div><div class="flow-arrow">→</div>
+  <div class="flow-step flow-manual">deploy prod (manual gate ↗)</div>
+</div>
+
+<p style="font-size:13px;margin-top:8px">The prod manual gate uses <strong>GitHub Environment protection rules</strong> — go to <code>Settings → Environments → prod → Required reviewers</code> and add yourself. The workflow pauses until you click "Approve and deploy" in the Actions UI.</p>
+
+<h3>AWS authentication</h3>
+<p style="font-size:13px">No static IAM access keys in GitHub. GitHub Actions authenticates via <strong>OIDC</strong> — assumes a role using a short-lived token. The IAM role trusts <code>token.actions.githubusercontent.com</code> as the identity provider. Zero long-lived credentials stored anywhere.</p>
+
+<!-- ── 9. SECRETS ──────────────────────────────────────────── -->
+<h2 id="secrets">9. Secrets management</h2>
+
+<p><strong>HCP Vault Secrets</strong> — free tier (25 secrets, unlimited reads). Two apps, one per environment:</p>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">da-dev</div>
+    <div style="font-family:var(--mono);font-size:12px;line-height:2;color:var(--text2)">
+      db_password<br>jwt_secret_key<br>stripe_webhook_secret<br>expo_push_token
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">da-prod</div>
+    <div style="font-family:var(--mono);font-size:12px;line-height:2;color:var(--text2)">
+      db_password<br>jwt_secret_key<br>stripe_webhook_secret<br>expo_push_token
+    </div>
+  </div>
+</div>
+
+<h3>GitHub repository secrets required</h3>
+<table>
+  <tr><th>Secret</th><th>Purpose</th></tr>
+  <tr><td><code>HCP_CLIENT_ID</code></td><td>HCP service principal client ID</td></tr>
+  <tr><td><code>HCP_CLIENT_SECRET</code></td><td>HCP service principal secret (mark as masked)</td></tr>
+  <tr><td><code>HCP_ORG_ID</code></td><td>HCP organisation ID</td></tr>
+  <tr><td><code>HCP_PROJECT_ID</code></td><td>HCP project ID</td></tr>
+  <tr><td><code>AWS_ROLE_ARN</code></td><td>IAM role for OIDC authentication</td></tr>
+</table>
+
+<!-- ── 10. COST ─────────────────────────────────────────────── -->
+<h2 id="cost">10. Cost profile</h2>
+
+<table>
+  <tr><th>Stage</th><th>MAU</th><th>Lean AWS</th><th>Standard AWS</th><th>Supabase</th></tr>
+  <tr><td>Dev</td><td>5</td><td><strong style="color:var(--green)">~$12/mo</strong></td><td style="color:var(--red)">~$127/mo</td><td style="color:var(--green)">$0/mo</td></tr>
+  <tr><td>Launch</td><td>5k</td><td><strong style="color:var(--green)">~$38/mo</strong></td><td style="color:var(--red)">~$205/mo</td><td style="color:var(--green)">$25/mo</td></tr>
+  <tr><td>Growth</td><td>100k</td><td><strong>~$123/mo</strong></td><td style="color:var(--red)">~$1,074/mo</td><td style="color:var(--green)">~$57/mo</td></tr>
+  <tr><td>Scale</td><td>1M</td><td><strong>~$1,050/mo</strong></td><td style="color:var(--red)">~$9,415/mo</td><td>~$985/mo</td></tr>
+</table>
+
+<!-- ── 11. DECISIONS ───────────────────────────────────────── -->
+<h2 id="decisions">11. Architecture decisions</h2>
+
+<table>
+  <tr><th>Decision</th><th>Choice</th><th>Rationale</th></tr>
+  <tr><td>Compute</td><td><code>Lambda arm64</code></td><td>Scale to zero, Graviton2 20% cheaper, faster cold starts</td></tr>
+  <tr><td>API routing</td><td>API GW HTTP v2</td><td>$1/million vs ALB $18/mo minimum</td></tr>
+  <tr><td>Chat</td><td>API GW WebSocket + Lambda</td><td>No ECS; 2hr timeout handled by client auto-reconnect</td></tr>
+  <tr><td>Database</td><td>RDS PostgreSQL + PostGIS</td><td>Complex queries, geo support, multi-condition filters — NoSQL can't do this</td></tr>
+  <tr><td>Cache</td><td>DynamoDB TTL</td><td>Shared cache at near-zero cost, no always-on instance</td></tr>
+  <tr><td>Auth</td><td>Cognito → custom JWT at 80k MAU</td><td>Cognito free to 50k MAU; custom JWT saves $275/mo at scale</td></tr>
+  <tr><td>Media</td><td>S3 + CloudFront OAC</td><td>Private bucket, CDN delivery, presigned upload URLs</td></tr>
+  <tr><td>IaC</td><td>Terraform ≥ 1.5</td><td>Enterprise module pattern, remote state, reproducible envs</td></tr>
+  <tr><td>Secrets</td><td>HCP Vault Secrets</td><td>Free tier, clean CI/CD integration, never in state files</td></tr>
+  <tr><td>IAM</td><td>Permission boundaries on all roles</td><td>Prevents privilege escalation even from misconfigured roles</td></tr>
+  <tr><td>Notifications</td><td>Expo Push SDK</td><td>Abstracts FCM + APNs, free, no SNS mobile push cost</td></tr>
+</table>
+
+<!-- ── 12. SCALING ─────────────────────────────────────────── -->
+<h2 id="scaling">12. Scaling path</h2>
+
+<table>
+  <tr><th>Threshold</th><th>Action</th><th>Cost impact</th></tr>
+  <tr><td>RDS CPU &gt; 40%</td><td>Upgrade instance or add read replica</td><td>+$15–30/mo</td></tr>
+  <tr><td>Cognito MAU &gt; 80k</td><td>Replace with custom JWT Lambda authorizer</td><td>−$275/mo</td></tr>
+  <tr><td>Cold starts hurting UX</td><td>Provisioned concurrency on auth + profile</td><td>+$15/mo</td></tr>
+  <tr><td>DynamoDB cost &gt; $50/mo</td><td>Evaluate Upstash Redis</td><td>~$10–50/mo</td></tr>
+  <tr><td>S3 egress &gt; $30/mo</td><td>Migrate media to Cloudflare R2 (zero egress)</td><td>Reduce</td></tr>
+  <tr><td>500k users</td><td>RDS read replica, raise Lambda concurrency limits</td><td>+$100–150/mo</td></tr>
+  <tr><td>1M users</td><td>Architecture review: Aurora Serverless, multi-region</td><td>Major</td></tr>
+</table>
+
+<div class="callout c-good" style="margin-top:20px">
+  <strong>What never changes regardless of scale:</strong> Lambda function code, DynamoDB table structure, S3 bucket config, API Gateway routing rules, Terraform module structure. You scale by changing config and instance sizes — not by rewriting services.
+</div>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border)">
+<p style="font-size:12px;color:var(--text3)">Da infrastructure repo &nbsp;·&nbsp; <code>da-infra/ARCHITECTURE.md</code> is the canonical text version of this document.</p>
+
+</body>
+</html>
