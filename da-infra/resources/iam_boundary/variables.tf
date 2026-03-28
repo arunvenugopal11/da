@@ -6,5 +6,5 @@ variable "env_name" {
 variable "aws_region" {
   description = "Primary AWS region"
   type        = string
-  default     = "ap-southeast-1"
+  default     = "ap-south-1"
 }

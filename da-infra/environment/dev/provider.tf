@@ -9,7 +9,7 @@ terraform {
 
   # Remote state — created by bootstrap/ before running this
   backend "s3" {
-    region         = "ap-southeast-1"
+    region         = "ap-south-1"
     bucket         = "da-tfstate-REPLACE_WITH_ACCOUNT_ID"
     key            = "da/dev/terraform.tfstate"
     dynamodb_table = "da-tflock"
@@ -18,7 +18,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-southeast-1"
+  region = "ap-south-1"
 
   default_tags {
     tags = {

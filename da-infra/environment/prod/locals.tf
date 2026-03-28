@@ -1,6 +1,6 @@
 locals {
   env_name     = "prod"
-  aws_region   = "ap-southeast-1"
+  aws_region   = "ap-south-1"
   account_name = "da-prod"
 
   rds_config = {

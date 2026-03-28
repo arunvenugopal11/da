@@ -70,7 +70,7 @@ Application code (React Native, Next.js, Lambda handlers) lives in the monorepo 
 - All Lambdas use Middy via shared `createHandler()` in `packages/lambda-utils`
 - Secrets come from `context` (injected by @middy/ssm) — never call SSM directly in handlers
 - DB driver: `postgres` (pure JS, by porsager) + Drizzle ORM — never use `pg` (native bindings)
-- Bun layer ARN (ap-southeast-1): arn:aws:lambda:ap-southeast-1:117169996103:layer:bun-arm64:8
+- Bun layer ARN (ap-south-1): arn:aws:lambda:ap-south-1:117169996103:layer:bun-arm64:8
 - Pin the layer to a specific version number — never use $LATEST
 
 ## Secrets flow

@@ -165,7 +165,7 @@ Interface Endpoints (small cost):
 
 | Provider | Region | Purpose |
 |----------|--------|---------|
-| Primary | `ap-southeast-1` | All application resources |
+| Primary | `ap-south-1` | All application resources |
 | Virginia alias | `us-east-1` | CloudFront ACM certificates |
 
 ---

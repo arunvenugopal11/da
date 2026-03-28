@@ -8,7 +8,7 @@ terraform {
   }
 
   backend "s3" {
-    region         = "ap-southeast-1"
+    region         = "ap-south-1"
     bucket         = "da-tfstate-REPLACE_WITH_ACCOUNT_ID"
     key            = "da/prod/terraform.tfstate"
     dynamodb_table = "da-tflock"
@@ -17,7 +17,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-southeast-1"
+  region = "ap-south-1"
 
   default_tags {
     tags = {
