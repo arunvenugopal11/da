@@ -15,7 +15,15 @@ module "common" {
   boundary_policy_arn = module.iam_boundary.boundary_policy_arn
 }
 
-# ── 3. SQS Queues ─────────────────────────────────────────────────────────────
+# ── 3. Cognito User Pool — phone OTP authentication ──────────────────────────
+module "cognito_auth" {
+  source              = "../../infrastructure/cognito_auth"
+  env_name            = local.env_name
+  boundary_policy_arn = module.iam_boundary.boundary_policy_arn
+  sms_external_id     = var.cognito_sms_external_id
+}
+
+# ── 4. SQS Queues ─────────────────────────────────────────────────────────────
 module "sqs_notification" {
   source              = "../../infrastructure/sqs_notification"
   env_name            = local.env_name
@@ -45,7 +53,7 @@ module "sqs_matching" {
   ]
 }
 
-# ── 4. RDS PostgreSQL + Proxy ──────────────────────────────────────────────────
+# ── 5. RDS PostgreSQL + Proxy ──────────────────────────────────────────────────
 module "rds_postgres" {
   source               = "../../infrastructure/rds_postgres"
   env_name             = local.env_name
@@ -61,7 +69,7 @@ module "rds_postgres" {
   lambda_execution_role_arns = values(module.lambda_api.execution_role_arns)
 }
 
-# ── 5. Lambda Functions ────────────────────────────────────────────────────────
+# ── 6. Lambda Functions ────────────────────────────────────────────────────────
 module "lambda_api" {
   source              = "../../infrastructure/lambda_api"
   env_name            = local.env_name
@@ -81,7 +89,7 @@ module "lambda_api" {
   lambda_zip_version    = var.lambda_zip_version
 }
 
-# ── 6. S3 Media + CloudFront ──────────────────────────────────────────────────
+# ── 7. S3 Media + CloudFront ──────────────────────────────────────────────────
 module "s3_media" {
   source   = "../../infrastructure/s3_media"
   env_name = local.env_name

@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Bun
+bun.lockb
+*.bun
+
+# Environment variables — never commit these
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+.next/
+.expo/
+out/
+
+# Turbo cache
+.turbo/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.swp
+*.swo
+
+# Terraform (already gitignored in da-infra but belt-and-suspenders)
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Test coverage
+coverage/
+
+# Expo
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/

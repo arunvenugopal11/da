@@ -26,6 +26,12 @@ variable "expo_push_token" {
   sensitive   = true
 }
 
+variable "cognito_sms_external_id" {
+  description = "External ID for Cognito SMS IAM role trust — from HCP Vault secret: da-dev/cognito_sms_external_id"
+  type        = string
+  sensitive   = true
+}
+
 variable "lambda_zip_version" {
   description = "Lambda deployment version — set by CI/CD pipeline (git SHA)"
   type        = string

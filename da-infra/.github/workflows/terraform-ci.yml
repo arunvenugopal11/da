@@ -144,10 +144,12 @@ jobs:
           echo "TF_VAR_jwt_secret_key=$(fetch jwt_secret_key)" >> $GITHUB_ENV
           echo "TF_VAR_stripe_webhook_secret=$(fetch stripe_webhook_secret)" >> $GITHUB_ENV
           echo "TF_VAR_expo_push_token=$(fetch expo_push_token)" >> $GITHUB_ENV
+          echo "TF_VAR_cognito_sms_external_id=$(fetch cognito_sms_external_id)" >> $GITHUB_ENV
           echo "TF_VAR_lambda_zip_version=${{ github.sha }}" >> $GITHUB_ENV
           # Mask secrets in logs
           echo "::add-mask::$(fetch db_password)"
           echo "::add-mask::$(fetch jwt_secret_key)"
+          echo "::add-mask::$(fetch cognito_sms_external_id)"
 
       - name: Terraform init
         run: terraform init
@@ -232,6 +234,7 @@ jobs:
           echo "TF_VAR_jwt_secret_key=$(fetch jwt_secret_key)" >> $GITHUB_ENV
           echo "TF_VAR_stripe_webhook_secret=$(fetch stripe_webhook_secret)" >> $GITHUB_ENV
           echo "TF_VAR_expo_push_token=$(fetch expo_push_token)" >> $GITHUB_ENV
+          echo "TF_VAR_cognito_sms_external_id=$(fetch cognito_sms_external_id)" >> $GITHUB_ENV
           echo "TF_VAR_lambda_zip_version=${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Terraform init
